@@ -128,7 +128,23 @@ class KnowledgeBase(object):
         printv("Retracting {!r}", 0, verbose, [fact_or_rule])
         ####################################################
         # Student code goes here
-        
+
+        fr = self._get_fact(fact_or_rule) if factq(fact_or_rule) else self._get_rule(fact_or_rule)
+        frflag = True if factq(fr) else False
+
+        if (factq(fr) and not(fr.supported_by)) or (not(factq(fr)) and fr.supported_by):
+            allsupports = fr.supports_facts+fr.supports_rules
+            for i in allsupports:
+                i.supported_by=[x for x in i.supported_by if fr not in x]
+                #print("recursive call incoming!")
+                self.kb_retract(i)
+            if frflag: self.facts.remove(fr)
+            else: self.rules.remove(fr)
+
+        return
+
+
+
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
@@ -140,9 +156,29 @@ class InferenceEngine(object):
             kb (KnowledgeBase) - A KnowledgeBase
 
         Returns:
-            Nothing            
+            Nothing
         """
         printv('Attempting to infer from {!r} and {!r} => {!r}', 1, verbose,
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
+
+        mcheck = match(rule.lhs[0],fact.statement)
+        if mcheck:
+            #instantiate rightside statement
+            rightside=instantiate(rule.rhs,mcheck)
+            if len(rule.lhs)>1:
+                #instantiate left side statements
+                leftside=[]
+                for i in range(1,len(rule.lhs)):
+                    leftside.append(instantiate(rule.lhs[i],mcheck))
+                newr=Rule([leftside,rightside],[[rule,fact]])
+                kb.kb_add(newr)
+                fact.supports_rules.append(newr)
+                rule.supports_rules.append(newr)
+
+            else:
+                newf=Fact(rightside,[[rule,fact]])
+                kb.kb_add(newf)
+                fact.supports_facts.append(newf)
+                rule.supports_facts.append(newf)
